@@ -255,8 +255,8 @@ public: // public functions used by main
     // (Assignment 5) and are added to the shared solutions.txt (Assignment 6).
     // A file error prints a message and moves on to the next file.
     // This function does not change the filename list, so it is const.
-    // Assignment 6 lines: written by Claude Haiku 4.5 (run 01), reviewed and
-    // commented by me. The solutionN.txt lines are Luke Tidball's.
+    // Assignment 6 lines: written by Claude Haiku 4.5 (run 01), reviewed by me,
+    // commented with Claude Opus 5.5. The solutionN.txt lines are Luke Tidball's.
     int run() const {
         // solutions.txt is opened once, before the loop, so every puzzle lands in the same file.
         std::ofstream solFile("solutions.txt"); // Creates or empties solutions.txt.
