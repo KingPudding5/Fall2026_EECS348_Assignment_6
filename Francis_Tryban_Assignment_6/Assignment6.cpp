@@ -1,29 +1,38 @@
-// Program name: EECS 348 Assignment 5
+// Program name: EECS 348 Assignment 6
 // Brief description: Solves Sudoku puzzles using recursive brute-force
-//                    backtracking and prints every solution it finds.
+//                    backtracking and writes every solution it finds to files.
 // Inputs: puzzle1.txt through puzzle5.txt by default, or filenames supplied
 //         as command-line arguments. Each puzzle must have nine rows of nine
 //         whitespace-separated cells. Digits 1-9 are clues, and _ is a blank.
 //         Empty lines are allowed between or around the puzzle rows.
-// Outputs: Each filename, its input grid, every solution with a number, and
-//          the total number of solutions. Prints a message when a file cannot
-//          be read or when a puzzle has no solution.
+// Outputs: solution1.txt-solution5.txt (one file per puzzle, kept from Assignment 5)
+//          and solutions.txt (one file for every puzzle, added for Assignment 6).
+//          Each puzzle's results are its solutions in the input-file format and
+//          "Solutions found: n", or "No solution found." Errors go to stderr.
 // Assignment 4 Author: Francis Tryban
 // Creation date: October 12, 2026
 // Revision date: October 15, 2026
 // Assignment 5 Revisor: Luke Tidball
 // Creation date: October 28, 2026
 // Revision Date: October 29, 2026
+// Assignment 6 Revisor: Francis Tryban
+// Creation date: November 12, 2026
+// Revised by: Francis Tryban - November 13, 2026
 // Collaborators: OpenAI Codex (GPT-6 Luna) wrote the base code. Claude Opus 5.5
 //                (Anthropic) helped with the first round of changes and wrote test scripts.
 //                Francis Tryban, who originally generated and revised the code for their Assignment 4.
 //                Google Gemini's Auto Mode (various Gemini 3 Models), who generated revisions upon Francis' Assignment 4.
 //                Luke Tidball, who generated revisions and manually revised the code for their Assignment 5.
+//                Claude Haiku 4.5 (Anthropic, through Claude Code) made the Assignment 6 changes in run()
+//                that write solutions.txt, following rules I wrote in AGENT.md.
+//                GPT-6 Luna (OpenAI Codex) was the second GenAI I compared; none of its code is used.
+//                Claude Opus 5.5 (Anthropic, through Claude Code) wrote my test scripts and helped me
+//                write the Assignment 6 prolog and comments.
 #include <array>     // fixed-size arrays used for the Sudoku grid.
 #include <fstream>   // file streams for opening puzzle files.
 #include <iostream>  // std::cout for printing grids and messages.
-#include <sstream>   // string stream for reading one row
-#include <string>
+#include <sstream>   // string streams for reading one row and holding a puzzle's results
+#include <string>    // std::string for filenames and puzzle rows.
 #include <vector>    // Stores the list of filenames to process.
 #include <cctype>    // std::isdigit
 
@@ -242,33 +251,55 @@ public: // public functions used by main
     }
 
     // process each file with a new Sudoku object so puzzles stay separate.
+    // Each puzzle is solved once. Its results go to its own solutionN.txt
+    // (Assignment 5) and are added to the shared solutions.txt (Assignment 6).
     // A file error prints a message and moves on to the next file.
     // This function does not change the filename list, so it is const.
+    // Assignment 6 lines: written by Claude Haiku 4.5 (run 01), reviewed and
+    // commented by me. The solutionN.txt lines are Luke Tidball's.
     int run() const {
+        // solutions.txt is opened once, before the loop, so every puzzle lands in the same file.
+        std::ofstream solFile("solutions.txt"); // Creates or empties solutions.txt.
+        if (!solFile) { // The file could not be created (for example, no write permission).
+            std::cerr << "Unable to open solutions.txt\n"; // Tells the user why nothing was written.
+            return 1; // Nonzero exit status because the program could not do its job.
+        }
+
         for (std::size_t i = 0; i < filenames.size(); ++i) { // Visits every filename.
             const std::string& filename = filenames[i]; // Uses the name without copying it.
 
             // Extract puzzle number to name the output file solutionN.txt
-            std::string numStr = "";
-            for (char ch : filename) {
-                if (std::isdigit(ch)) {
-                    numStr += ch;
+            std::string numStr = ""; // Collects the digits found in the filename.
+            for (char ch : filename) { // Looks at each character of the filename.
+                if (std::isdigit(ch)) { // Keeps only the digits, so puzzle3.txt gives "3".
+                    numStr += ch; // Adds this digit to the puzzle number.
                 }
             }
-            std::string outFilename = "solution" + (numStr.empty() ? std::to_string(i + 1) : numStr) + ".txt";
+            std::string outFilename = "solution" + (numStr.empty() ? std::to_string(i + 1) : numStr) + ".txt"; // No digits means the file's position is used instead.
 
-            std::ofstream outFile(outFilename);
-            if (!outFile) {
-                std::cerr << "Unable to open output file " << outFilename << '\n';
-                continue;
+            // Every puzzle starts with its header line in solutions.txt.
+            solFile << "Puzzle: " << filename << '\n'; // Example: Puzzle: puzzle1.txt
+
+            std::ofstream outFile(outFilename); // Opens this puzzle's own solutionN.txt.
+            if (!outFile) { // That file could not be created.
+                std::cerr << "Unable to open output file " << outFilename << '\n'; // Reports which file failed.
+                solFile << "No solution found.\n"; // Keeps solutions.txt complete for this puzzle.
+                continue; // Moves on to the next puzzle.
             }
 
             Sudoku puzzle; // Creates a new puzzle object for this file.
             if (!puzzle.load(filename)) { // Tries to read the puzzle file.
                 outFile << "Unable to read puzzle\n"; // Reports the failed load to output file.
+                std::cerr << "Unable to read puzzle " << filename << '\n'; // Also tells the user on screen which file failed.
+                solFile << "No solution found.\n"; // A puzzle that cannot be read has no solution to list.
                 continue; // Skips this file and moves to the next one.
             }
-            puzzle.solve(outFile); // Solves and writes solutions to solutionN.txt
+            // Solve once into memory, then copy the same text to both files,
+            // so the slow recursive search never runs twice for one puzzle.
+            std::stringstream captured; // Holds this puzzle's solutions and count as text.
+            puzzle.solve(captured); // Finds and writes every possible solution into captured.
+            outFile << captured.str(); // Copies the results into solutionN.txt.
+            solFile << captured.str(); // Copies the same results into solutions.txt.
         }
         return 0; // Reports normal completion after processing all files.
     }
